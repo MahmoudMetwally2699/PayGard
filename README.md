@@ -1,4 +1,3 @@
-Here’s a comprehensive `README.md` file for your project. It includes project setup instructions, API details, environment variables, and test user/admin credentials.
 
 ---
 
