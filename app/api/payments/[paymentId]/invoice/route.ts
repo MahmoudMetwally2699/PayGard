@@ -16,12 +16,8 @@ interface Payment {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // Extract paymentId from the URL path
-    const url = new URL(request.url);
-    const paymentId = url.pathname.split('/').pop(); // Extract the last segment of the URL
-
+    const paymentId = request.url.split('/').pop()?.split('?')[0];
     if (!paymentId) {
-      console.error('Payment ID is missing');
       return NextResponse.json({ error: 'Payment ID is required' }, { status: 400 });
     }
 

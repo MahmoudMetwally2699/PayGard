@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import mongoose from 'mongoose';
 import { sendStatusUpdateEmail } from '@/lib/emailService';
@@ -78,12 +79,13 @@ export async function POST(request: Request) {
 }
 
 // Update payment status
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ paymentId: string }> | { paymentId: string } }
-) {
+export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
-    const { paymentId } = await params;
+    const paymentId = request.url.split('/').pop()?.split('?')[0];
+    if (!paymentId) {
+      return NextResponse.json({ error: 'Payment ID is required' }, { status: 400 });
+    }
+
     const { status } = await request.json();
     await dbConnect();
 
