@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { generateInvoicePDF } from '@/lib/pdfGenerator';
 import dbConnect from '@/lib/mongodb';
 import mongoose from 'mongoose';
@@ -14,9 +15,9 @@ interface Payment {
 }
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { paymentId: string } }
-) {
+): Promise<NextResponse> {
   try {
     const { paymentId } = params;
     await dbConnect();
