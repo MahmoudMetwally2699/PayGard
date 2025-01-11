@@ -38,7 +38,7 @@ export default function PaymentPage() {
         } else {
           setError(data.error || 'Payment initialization failed');
         }
-      } catch (err) {
+      } catch {
         setError('Failed to initialize payment');
       }
     };
