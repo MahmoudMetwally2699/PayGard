@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { generateInvoicePDF } from '@/lib/pdfGenerator';
 import dbConnect from '@/lib/mongodb';
 import mongoose from 'mongoose';
@@ -13,36 +14,45 @@ interface Payment {
   createdAt: string;
 }
 
-async function getInvoice(paymentId: string) {
-  await dbConnect();
-
-  const objectId = new mongoose.Types.ObjectId(paymentId);
-  const payment = await mongoose.connection.collection('payments').findOne({
-    _id: objectId,
-  }) as unknown as Payment;
-
-  if (!payment) {
-    throw new Error('Payment not found');
-  }
-
-  const user = await User.findOne({ supabaseUserId: payment.userId });
-  if (!user) {
-    throw new Error('User not found');
-  }
-
-  const pdfBuffer = await generateInvoicePDF(payment, user);
-  return { pdfBuffer, payment };
-}
-
-export async function GET(
-  _request: Request,
-  context: { params: { paymentId: string } }
-) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const { paymentId } = context.params;
-    const { pdfBuffer, payment } = await getInvoice(paymentId);
+    // Extract paymentId from the URL path
+    const url = new URL(request.url);
+    const paymentId = url.pathname.split('/').pop(); // Extract the last segment of the URL
 
-    // Use headers() instead of setting them directly
+    if (!paymentId) {
+      console.error('Payment ID is missing');
+      return NextResponse.json({ error: 'Payment ID is required' }, { status: 400 });
+    }
+
+    await dbConnect();
+
+    console.log('Generating invoice for payment:', paymentId);
+
+    const objectId = new mongoose.Types.ObjectId(paymentId);
+    const payment = await mongoose.connection.collection('payments').findOne({
+      _id: objectId,
+    }) as unknown as Payment;
+
+    if (!payment) {
+      console.error('Payment not found:', paymentId);
+      return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
+    }
+
+    console.log('Found payment:', payment);
+
+    // Find user by Supabase ID
+    const user = await User.findOne({ supabaseUserId: payment.userId });
+    console.log('Found user:', user);
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const pdfBuffer = await generateInvoicePDF(payment, user);
+    console.log('PDF generated successfully');
+
+    // Return PDF file with proper headers
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
