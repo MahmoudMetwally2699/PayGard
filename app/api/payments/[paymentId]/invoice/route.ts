@@ -16,10 +16,11 @@ interface Payment {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // Extract paymentId from URL pattern /api/payments/{paymentId}/invoice
-    const paymentId = request.url.split('/payments/')[1]?.split('/')[0];
+    const segments = request.url.split('/');
+    const paymentId = segments[segments.indexOf('payments') + 1];
 
-    if (!paymentId || paymentId.length !== 24) {
+    // Validate paymentId
+    if (!paymentId || !mongoose.Types.ObjectId.isValid(paymentId)) {
       return NextResponse.json(
         { error: 'Invalid payment ID format' },
         { status: 400 }
@@ -28,46 +29,30 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     await dbConnect();
 
-    try {
-      const objectId = new mongoose.Types.ObjectId(paymentId);
-      const payment = await mongoose.connection.collection('payments').findOne({
-        _id: objectId,
-      }) as unknown as Payment;
+    const objectId = new mongoose.Types.ObjectId(paymentId);
+    const payment = await mongoose.connection.collection('payments').findOne({
+      _id: objectId,
+    }) as unknown as Payment;
 
-      if (!payment) {
-        console.error('Payment not found:', paymentId);
-        return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
-      }
-
-      console.log('Found payment:', payment);
-
-      // Find user by Supabase ID
-      const user = await User.findOne({ supabaseUserId: payment.userId });
-      console.log('Found user:', user);
-
-      if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      }
-
-      const pdfBuffer = await generateInvoicePDF(payment, user);
-      console.log('PDF generated successfully');
-
-      // Return PDF file with proper headers
-      return new NextResponse(pdfBuffer, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="invoice-${payment._id}.pdf"`,
-          'Cache-Control': 'no-cache',
-        },
-      });
-    } catch {
-      console.error('Invalid ObjectId format:', paymentId);
-      return NextResponse.json(
-        { error: 'Invalid payment ID format' },
-        { status: 400 }
-      );
+    if (!payment) {
+      return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
+
+    const user = await User.findOne({ supabaseUserId: payment.userId });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const pdfBuffer = await generateInvoicePDF(payment, user);
+
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="invoice-${payment._id}.pdf"`,
+        'Cache-Control': 'no-cache',
+      },
+    });
   } catch (error) {
     console.error('Invoice generation error:', error);
     return NextResponse.json(
