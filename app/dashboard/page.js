@@ -1,7 +1,48 @@
-'use client'; // Mark this as a Client Component
+'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import InvoiceButton from '../components/InvoiceButton';
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+
+// Simple Payment Form Component
+const CheckoutForm = ({ amount, onSuccess }) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    const { error: submitError, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/dashboard`,
+      },
+      redirect: 'if_required',
+    });
+
+    if (submitError) {
+      setError(submitError.message);
+    } else if (paymentIntent.status === 'succeeded') {
+      onSuccess(paymentIntent);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <PaymentElement />
+      {error && <div className="text-red-500 mt-2">{error}</div>}
+      <button type="submit" className="w-full mt-4 bg-blue-500 text-white py-2 rounded">
+        Pay ${amount}
+      </button>
+    </form>
+  );
+};
 
 export default function Dashboard() {
   const router = useRouter();
@@ -10,6 +51,8 @@ export default function Dashboard() {
   const [payments, setPayments] = useState([]); // State to store payment requests
   const [title, setTitle] = useState(''); // State for payment title
   const [amount, setAmount] = useState(''); // State for payment amount
+  const [clientSecret, setClientSecret] = useState(null);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
 
   // Fetch the authenticated user on component mount
   useEffect(() => {
@@ -46,7 +89,7 @@ export default function Dashboard() {
     }
   };
 
-  // Handle creating a new payment request
+  // Update handleCreatePayment
   const handleCreatePayment = async (e) => {
     e.preventDefault();
 
@@ -56,25 +99,57 @@ export default function Dashboard() {
     }
 
     try {
-      const response = await fetch('/api/payments', {
+      // Create payment intent
+      const response = await fetch('/api/payments/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, amount, userId: user.id }),
+        body: JSON.stringify({
+          title,
+          amount: parseFloat(amount),
+          userId: user.id,
+        }),
       });
 
       const data = await response.json();
+
       if (response.ok) {
-        alert('Payment created successfully!');
-        setTitle(''); // Clear the title field
-        setAmount(''); // Clear the amount field
-        fetchPayments(user.id); // Refresh the payments list
+        setClientSecret(data.clientSecret);
+        setShowPaymentForm(true);
+        if (response.ok && data.clientSecret) {
+          setClientSecret(data.clientSecret);
+          setShowStripeForm(true);
+        } else {
+          alert(data.error || 'Failed to create payment');
+        }
       } else {
-        alert(data.message); // Show error message
+        alert(data.error || 'Failed to create payment');
       }
     } catch (error) {
-      console.error('Error creating payment:', error);
-      alert('Failed to create payment. Please try again.');
+      console.error('Error:', error);
+      alert('Failed to create payment');
     }
+  };
+
+  const handlePaymentSuccess = async (paymentIntent) => {
+    // Update payment status in your database
+    await fetch('/api/payments/update-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        paymentIntentId: paymentIntent.id,
+        status: 'completed'
+      }),
+    });
+
+    setShowPaymentForm(false);
+    setTitle('');
+    setAmount('');
+    fetchPayments(user.id);
+    setShowStripeForm(false);
+    setTitle('');
+    setAmount('');
+    fetchPayments(user.id);
+    alert('Payment successful!');
   };
 
   // Handle logout
@@ -95,6 +170,68 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  // Update the Create Payment Card JSX
+  const renderPaymentCard = () => (
+    <div className="bg-white rounded-lg shadow-lg p-6">
+      <h2 className="text-xl font-semibold mb-4 text-gray-800">Create Payment Request</h2>
+      {!showPaymentForm ? (
+        <form onSubmit={handleCreatePayment} className="space-y-4">
+          <div>
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+              Payment Title
+            </label>
+            <input
+              id="title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+              Amount ($)
+            </label>
+            <input
+              id="amount"
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-2 rounded-lg font-semibold shadow-md hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transform transition-all duration-200 hover:scale-[1.02]"
+          >
+            Create Payment
+          </button>
+        </form>
+      ) : (
+        <div>
+          <h3 className="font-medium mb-4">Complete Payment for {title}</h3>
+          {clientSecret && (
+            <Elements stripe={stripePromise} options={{ clientSecret }}>
+              <CheckoutForm
+                amount={amount}
+                onSuccess={handlePaymentSuccess}
+              />
+            </Elements>
+          )}
+          <button
+            onClick={() => setShowPaymentForm(false)}
+            className="mt-4 text-sm text-gray-500 hover:text-gray-700"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -141,43 +278,7 @@ export default function Dashboard() {
               </div>
 
               {/* Create Payment Card */}
-              <div className="bg-white rounded-lg shadow-lg p-6">
-                <h2 className="text-xl font-semibold mb-4 text-gray-800">Create Payment Request</h2>
-                <form onSubmit={handleCreatePayment} className="space-y-4">
-                  <div>
-                    <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                      Payment Title
-                    </label>
-                    <input
-                      id="title"
-                      type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-                      Amount ($)
-                    </label>
-                    <input
-                      id="amount"
-                      type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                      required
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-2 rounded-lg font-semibold shadow-md hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transform transition-all duration-200 hover:scale-[1.02]"
-                  >
-                    Create Payment
-                  </button>
-                </form>
-              </div>
+              {renderPaymentCard()}
             </div>
 
             {/* Payments List */}
@@ -194,13 +295,19 @@ export default function Dashboard() {
                           <h3 className="font-semibold text-gray-800">{payment.title}</h3>
                           <p className="text-lg font-bold text-blue-600">${payment.amount}</p>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          payment.status === 'approved' ? 'bg-green-100 text-green-800' :
-                          payment.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {payment.status}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            payment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            payment.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {payment.status}
+                          </span>
+                          {/* Show invoice button for any successful payment */}
+                          {(payment.status === 'completed' || payment.status === 'approved') && (
+                            <InvoiceButton paymentId={payment._id.toString()} />
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
