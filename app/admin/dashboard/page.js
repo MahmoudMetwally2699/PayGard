@@ -52,7 +52,7 @@ export default function AdminDashboard() {
   };
 
   // Apply filters to payments
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...payments];
 
     if (filters.startDate) {
@@ -66,11 +66,11 @@ export default function AdminDashboard() {
     }
 
     setFilteredPayments(filtered);
-  };
+  }, [filters, payments]);
 
   useEffect(() => {
     applyFilters();
-  }, [filters, payments]);
+  }, [applyFilters]);
 
   // Fetch all documents (for admin)
   const fetchAllDocuments = async () => {
