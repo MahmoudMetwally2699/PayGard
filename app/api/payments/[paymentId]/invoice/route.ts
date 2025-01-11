@@ -15,13 +15,11 @@ interface Payment {
 }
 
 export async function GET(
-  _request: NextRequest,
-  context: {
-    params: { paymentId: string }
-  }
+  request: NextRequest,
+  { params }: { params: { paymentId: string } }
 ): Promise<NextResponse> {
   try {
-    const { paymentId } = context.params;
+    const { paymentId } = params;
     await dbConnect();
 
     console.log('Generating invoice for payment:', paymentId);
