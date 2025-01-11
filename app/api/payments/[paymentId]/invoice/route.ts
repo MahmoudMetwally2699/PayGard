@@ -14,12 +14,11 @@ interface Payment {
   createdAt: string;
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { paymentId: string } }
-): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const paymentId = params.paymentId;
+    // Extract paymentId from URL pattern /api/payments/{paymentId}/invoice
+    const paymentId = request.url.split('/payments/')[1]?.split('/')[0];
+
     if (!paymentId || paymentId.length !== 24) {
       return NextResponse.json(
         { error: 'Invalid payment ID format' },
