@@ -26,7 +26,7 @@ export async function GET(
 
     const objectId = new mongoose.Types.ObjectId(paymentId);
     const payment = await mongoose.connection.collection('payments').findOne({
-      _id: objectId
+      _id: objectId,
     }) as unknown as Payment;
 
     if (!payment) {
@@ -58,9 +58,12 @@ export async function GET(
     });
   } catch (error) {
     console.error('Invoice generation error:', error);
-    return NextResponse.json({
-      error: 'Failed to generate invoice',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to generate invoice',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }
