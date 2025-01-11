@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import PaymentForm from '../components/PaymentForm';
 
-export default function PaymentPage() {
+// Separate component for payment content
+function PaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [clientSecret, setClientSecret] = useState('');
@@ -63,5 +64,20 @@ export default function PaymentPage() {
       </div>
       {clientSecret && <PaymentForm clientSecret={clientSecret} />}
     </div>
+  );
+}
+
+// Main payment page component with Suspense
+export default function PaymentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      }
+    >
+      <PaymentContent />
+    </Suspense>
   );
 }
