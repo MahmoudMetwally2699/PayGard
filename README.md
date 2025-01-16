@@ -141,9 +141,7 @@ http://localhost:3000/api
 Create a `.env` file in the root directory and add the following variables:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://zaczeqhtayacrjehmsvz.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphY3plcWh0YXlhY3JqZWhtc3Z6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzY1MDkyNDgsImV4cCI6MjA1MjA4NTI0OH0.B7ZhYDLiai4wg0fQRMxco4hMe6lpGS0Gr0S4KnP3hys
-MONGODB_URI=mongodb+srv://mahmmetwally26:Mah%401999@cluster0.wmc9x7o.mongodb.net/payments
+
 ```
 
 ---
