@@ -148,13 +148,7 @@ Create a `.env` file in the root directory and add the following variables:
 
 ## Test Credentials
 
-### User Credentials
-- **Email:** `mahmetwally99@gmail.com`
-- **Password:** `mahmoud1234`
 
-### Admin Credentials
-- **Email:** `mahmetwally99@gmail.com`
-- **Password:** `123456`
 
 ---
 
