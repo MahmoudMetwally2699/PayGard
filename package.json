@@ -18,7 +18,7 @@
     "jspdf": "^2.5.2",
     "mongodb": "^6.12.0",
     "mongoose": "^8.9.4",
-    "next": "15.1.4",
+    "next": "15.2.3",
     "nodemailer": "^6.9.16",
     "pdfkit": "^0.16.0",
     "pdfkit-table": "^0.1.99",
